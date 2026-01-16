@@ -10,7 +10,7 @@ import chromadb
 
 app = FastAPI(
     title="Face ID Boom",
-    description="Система распознавания лиц нового поколения — Grok-powered, лучше конкурентов",
+    description="Система распознавания лиц нового поколения — JPG-Style Production-powered, лучше конкурентов",
     version="0.6.1 — Chroma + multi-template"
 )
 
@@ -75,7 +75,7 @@ def extract_best_embedding(img: np.ndarray) -> Optional[np.ndarray]:
 
 @app.get("/")
 async def root():
-    return {"message": "Face ID Boom запущен! 🚀 Grok рулит 😈"}
+    return {"message": "Face ID Boom запущен! 🚀 JPG-Style Prodution 😈"}
 
 @app.post("/register")
 async def register_person(input: RegisterInput):

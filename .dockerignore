@@ -1,0 +1,8 @@
+.venv
+__pycache__
+*.pyc
+.git
+.gitignore
+photo_base64.txt
+search_photo.txt
+persons.json
