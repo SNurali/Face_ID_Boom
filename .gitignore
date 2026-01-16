@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Базы данных и большие файлы
+chroma_db/
+*.db
+*.sqlite3
+
+# Логи и временные файлы
+*.log
+*.tmp
+photo_base64.txt   # если там чувствительные данные
