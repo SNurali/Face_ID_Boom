@@ -1,4 +1,5 @@
-version: '3.8'
+# version: '3.8'  ← можно удалить или закомментировать, в новых версиях compose это не нужно
+
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -10,5 +11,26 @@ services:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: face_id_clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    ports:
+      - "8123:8123"     # HTTP интерфейс (удобно для тестов)
+      - "9000:9000"     # Native TCP (самый быстрый для python-клиентов)
+      # - "9440:9440"   # HTTPS — если нужен
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      - CLICKHOUSE_DB=face_id_db
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=             # ← поставь пароль, если хочешь безопасность
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    restart: unless-stopped
+
 volumes:
   qdrant_data:
+  clickhouse_data:
