@@ -1,192 +1,176 @@
 let video = document.getElementById('video');
-let registerBtn = document.getElementById('registerBtn');
-let checkDbBtn = document.getElementById('checkDbBtn');
-let clearBtn = document.getElementById('clearBtn');
-let statusText = document.getElementById('statusText');
-let loadingSpinner = document.getElementById('loadingSpinner');
-let overlay = document.getElementById('overlay');
-let searchResult = document.getElementById('searchResult');
-let searchMatches = document.getElementById('searchMatches');
-let alertContainer = document.getElementById('alertContainer');
+let modalVideo = document.getElementById('modalVideo');
+
+let modeCamera = document.getElementById('modeCamera');
+let modeUpload = document.getElementById('modeUpload');
+
+let cameraBlock = document.getElementById('cameraBlock');
+let uploadBlock = document.getElementById('uploadBlock');
+
+let photoFile = document.getElementById('photoFile');
+let photoPreview = document.getElementById('photoPreview');
 
 let stream = null;
-let isProcessing = false;
 
 const registerModal = new bootstrap.Modal(
     document.getElementById('registerModal')
 );
 
-// ────────────────────────────────────────────────
-// UI helpers
-// ────────────────────────────────────────────────
-function showAlert(message, type = 'success') {
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show`;
-    alert.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    alertContainer.appendChild(alert);
-    setTimeout(() => alert.remove(), 6000);
-}
-
-function setStatus(text, loading = false) {
-    statusText.textContent = text;
-    loadingSpinner.style.display = loading ? 'inline-block' : 'none';
-}
-
-// ────────────────────────────────────────────────
-// Camera
-// ────────────────────────────────────────────────
+// ───── CAMERA ─────
 async function startCamera() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        await video.play();
-        overlay.style.opacity = '0';
-        setStatus('Камера готова', false);
-        registerBtn.disabled = false;
-        checkDbBtn.disabled = false;
-    } catch (e) {
-        setStatus('Нет доступа к камере', false);
-        showAlert('Не удалось открыть камеру', 'danger');
-    }
+    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    modalVideo.srcObject = stream;
+    await video.play();
+    await modalVideo.play();
 }
 
-function stopCamera() {
-    stream?.getTracks().forEach(t => t.stop());
-}
-
-function captureFrame() {
+function captureFromCamera() {
     const c = document.createElement('canvas');
-    c.width = video.videoWidth;
-    c.height = video.videoHeight;
-    c.getContext('2d').drawImage(video, 0, 0);
+    c.width = modalVideo.videoWidth;
+    c.height = modalVideo.videoHeight;
+    c.getContext('2d').drawImage(modalVideo, 0, 0);
     return c.toDataURL('image/jpeg', 0.85);
 }
 
-// ────────────────────────────────────────────────
-// РЕГИСТРАЦИЯ
-// ────────────────────────────────────────────────
-registerBtn.addEventListener('click', () => {
-    registerModal.show();
-});
+// ───── FILE UPLOAD ─────
+photoFile.onchange = () => {
+    const file = photoFile.files[0];
+    if (!file) return;
 
-document.getElementById('submitRegister').addEventListener('click', async () => {
-    if (isProcessing) return;
-    isProcessing = true;
+    const reader = new FileReader();
+    reader.onload = () => {
+        photoPreview.src = reader.result;
+        photoPreview.classList.remove('d-none');
+    };
+    reader.readAsDataURL(file);
+};
+
+// ───── MODE SWITCH ─────
+modeCamera.onchange = () => {
+    cameraBlock.classList.remove('d-none');
+    uploadBlock.classList.add('d-none');
+};
+
+modeUpload.onchange = () => {
+    cameraBlock.classList.add('d-none');
+    uploadBlock.classList.remove('d-none');
+};
+
+// ───── REGISTRATION ─────
+document.getElementById('registerBtn').onclick = () => registerModal.show();
+
+document.getElementById('submitRegister').onclick = async () => {
+
+    let photoBase64;
+
+    if (modeCamera.checked) {
+        photoBase64 = captureFromCamera();
+    } else {
+        if (!photoFile.files.length) {
+            alert('Загрузите фотографию');
+            return;
+        }
+        photoBase64 = photoPreview.src;
+    }
+
+    const payload = {
+        photos_base64: photoBase64,
+        full_name: full_name.value,
+        passport: passport.value,
+        gender: parseInt(gender.value),
+        citizenship: citizenship.value || null,
+        birth_date: birth_date.value || null,
+        visa_type: visa_type.value || null,
+        visa_number: visa_number.value || null,
+        entry_date: entry_date.value || null,
+        exit_date: exit_date.value || null
+    };
+
+    const r = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!r.ok) {
+        const e = await r.json();
+        alert(e.detail || 'Ошибка регистрации');
+        return;
+    }
+
+    alert('Регистрация успешна');
+    registerModal.hide();
+    document.getElementById('registerForm').reset();
+    photoPreview.classList.add('d-none');
+};
+
+window.onload = startCamera;
+// ───────────── SEARCH ─────────────
+document.getElementById('checkDbBtn').onclick = async () => {
+
+    let photoBase64;
+
+    // определяем источник фото
+    if (modeCamera && modeCamera.checked) {
+        photoBase64 = captureFromCamera();
+    } else if (photoPreview && photoPreview.src) {
+        photoBase64 = photoPreview.src;
+    } else {
+        alert('Нет изображения для поиска');
+        return;
+    }
 
     try {
-        setStatus('Регистрация...', true);
+        const r = await fetch('/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photos_base64: photoBase64 })
+        });
 
-        const fullName = document.getElementById('full_name').value.trim();
-        const passport = document.getElementById('passport').value.trim();
-        const gender = parseInt(document.getElementById('gender').value, 10);
+        const data = await r.json();
 
-        if (!fullName || !passport || ![1, 2].includes(gender)) {
-            showAlert('Заполните обязательные поля', 'danger');
+        if (!r.ok) {
+            alert(data.detail || 'Ошибка поиска');
             return;
         }
 
-        const payload = {
-            photos_base64: captureFrame(),
-            full_name: fullName,
-            passport: passport,
-            gender: gender,
-            citizenship: document.getElementById('citizenship').value || null,
-            birth_date: document.getElementById('birth_date').value || null,
-            visa_type: document.getElementById('visa_type').value || null,
-            visa_number: document.getElementById('visa_number').value || null,
-            entry_date: document.getElementById('entry_date').value || null,
-            exit_date: document.getElementById('exit_date').value || null
-        };
+        // очистка старых результатов
+        const resultBox = document.getElementById('searchResult');
+        const matchesBox = document.getElementById('searchMatches');
 
-        const response = await fetch('/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        matchesBox.innerHTML = '';
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || data.message || 'Ошибка регистрации');
-        }
-
-        showAlert('Успешно зарегистрирован', 'success');
-        registerModal.hide();
-        document.getElementById('registerForm').reset();
-
-    } catch (e) {
-        showAlert(e.message, 'danger');
-    } finally {
-        setStatus('Готово', false);
-        isProcessing = false;
-    }
-});
-
-// ────────────────────────────────────────────────
-// ПОИСК
-// ────────────────────────────────────────────────
-checkDbBtn.addEventListener('click', async () => {
-    if (isProcessing) return;
-    isProcessing = true;
-
-    try {
-        setStatus('Поиск...', true);
-
-        const response = await fetch('/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photos_base64: captureFrame() })
-        });
-
-        const data = await response.json();
-        searchMatches.innerHTML = '';
-
-        if (data.matches?.length) {
+        if (!data.matches || !data.matches.length) {
+            matchesBox.innerHTML =
+                '<div class="text-center text-muted">Совпадений не найдено</div>';
+        } else {
             data.matches.forEach(m => {
-                const similarity =
-                    typeof m.similarity === 'number' && isFinite(m.similarity)
-                        ? m.similarity.toFixed(1) + '%'
-                        : '—';
+                const sim = isFinite(m.similarity)
+                    ? m.similarity.toFixed(1) + '%'
+                    : '—';
 
                 const div = document.createElement('div');
                 div.className = 'list-group-item';
-                    div.innerHTML = `
-                        <strong>ФИО:</strong> ${m.full_name || '—'}<br>
-                        <strong>Паспорт:</strong> ${m.passport || '—'}<br>
-                        <strong>Гражданство:</strong> ${m.citizenship || '—'}<br>
-                        <strong>Дата рождения:</strong> ${m.birth_date || '—'}<br>
-                        <strong>Тип визы:</strong> ${m.visa_type || '—'}<br>
-                        <strong>Номер визы:</strong> ${m.visa_number || '—'}<br>
-                        <strong>Въезд:</strong> ${m.entry_date || '—'}<br>
-                        <strong>Выезд:</strong> ${m.exit_date || '—'}<br>
-                        <strong>Схожесть:</strong> ${similarity}
-                    `;
-
-                searchMatches.appendChild(div);
+                div.innerHTML = `
+                    <strong>ФИО:</strong> ${m.full_name || '—'}<br>
+                    <strong>Паспорт:</strong> ${m.passport || '—'}<br>
+                    <strong>Гражданство:</strong> ${m.citizenship || '—'}<br>
+                    <strong>Дата рождения:</strong> ${m.birth_date || '—'}<br>
+                    <strong>Тип визы:</strong> ${m.visa_type || '—'}<br>
+                    <strong>Номер визы:</strong> ${m.visa_number || '—'}<br>
+                    <strong>Въезд:</strong> ${m.entry_date || '—'}<br>
+                    <strong>Выезд:</strong> ${m.exit_date || '—'}<br>
+                    <strong>Схожесть:</strong> ${sim}
+                `;
+                matchesBox.appendChild(div);
             });
-            searchResult.style.display = 'block';
-        } else {
-            searchMatches.innerHTML =
-                '<div class="text-muted text-center py-4">Совпадений нет</div>';
-            searchResult.style.display = 'block';
         }
 
+        resultBox.style.display = 'block';
+
     } catch (e) {
-        showAlert('Ошибка поиска', 'danger');
-    } finally {
-        setStatus('Готово', false);
-        isProcessing = false;
+        alert('Ошибка соединения с сервером');
+        console.error(e);
     }
-});
-
-// ────────────────────────────────────────────────
-clearBtn.addEventListener('click', () => {
-    searchResult.style.display = 'none';
-    searchMatches.innerHTML = '';
-});
-
-window.addEventListener('load', startCamera);
-window.addEventListener('beforeunload', stopCamera);
+};

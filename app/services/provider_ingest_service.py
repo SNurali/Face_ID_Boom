@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 import os
 import uuid
 import base64
@@ -14,7 +14,7 @@ from app.services.utils import new_uuid
 
 
 # ────────────────────────────────────────────────
-# Константы
+# Константы статусов embedding
 # ────────────────────────────────────────────────
 EMB_OK = 1
 EMB_NONE = 0
@@ -30,7 +30,7 @@ os.makedirs(IMAGES_DIR, exist_ok=True)
 @dataclass
 class PhotoResult:
     face_url: Optional[str] = None
-    embedding: Optional[list[float]] = None
+    embedding: Optional[List[float]] = None
     embedding_status: int = EMB_NONE
     det_score: float = 0.0
     blur: float = 0.0
@@ -39,6 +39,9 @@ class PhotoResult:
 
 
 def quality_score(p: PhotoResult) -> float:
+    """
+    Итоговый скор качества фото (используется при сравнении снимков)
+    """
     return (
         (p.det_score * 100.0)
         + (min(p.blur, 300.0) * 0.2)
@@ -47,7 +50,7 @@ def quality_score(p: PhotoResult) -> float:
 
 
 # ────────────────────────────────────────────────
-# Основной сервис ingest
+# Основной ingest-сервис
 # ────────────────────────────────────────────────
 class ProviderIngestService:
     def __init__(self, repo: FaceIdRepo, face_app):
@@ -87,8 +90,9 @@ class ProviderIngestService:
                 print("Фото не прошло quality gates")
                 return PhotoResult(embedding_status=EMB_FAILED)
 
-            person_id_tmp = str(uuid.uuid4())
-            face_filename = f"{person_id_tmp}.jpg"
+            # сохраняем кроп лица
+            tmp_id = str(uuid.uuid4())
+            face_filename = f"{tmp_id}.jpg"
             face_path = os.path.join(IMAGES_DIR, face_filename)
 
             x1, y1, x2, y2 = result.meta.bbox
@@ -97,7 +101,7 @@ class ProviderIngestService:
 
             return PhotoResult(
                 face_url=face_path,
-                embedding=result.embedding,          # ← ВАЖНО
+                embedding=result.embedding,
                 embedding_status=EMB_OK,
                 det_score=result.meta.det_score,
                 blur=result.meta.blur,
@@ -110,12 +114,17 @@ class ProviderIngestService:
             return PhotoResult(embedding_status=EMB_FAILED)
 
     # ────────────────────────────────────────────
-    # INGEST
+    # INGEST (РЕГИСТРАЦИЯ)
     # ────────────────────────────────────────────
     async def ingest(self, input: RegisterInput) -> str:
         person_id = str(new_uuid())
 
-        new_photo = await self.process_photo(input)
+        photo_result = await self.process_photo(input)
+
+        # 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ:
+        # если фото не прошло quality gates — НЕ сохраняем запись
+        if photo_result.embedding_status != EMB_OK or not photo_result.embedding:
+            raise ValueError("Фото не прошло проверку качества. Регистрация отклонена.")
 
         snapshot = {
             "person_id": person_id,
@@ -129,14 +138,14 @@ class ProviderIngestService:
             "entry_date": input.entry_date,
             "exit_date": input.exit_date,
 
-            # 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
-            "embedding": new_photo.embedding,              # ← ДОБАВЛЕНО
-            "face_url": new_photo.face_url,
-            "embedding_status": new_photo.embedding_status,
-            "det_score": new_photo.det_score,
-            "blur": new_photo.blur,
-            "face_size": new_photo.face_size,
-            "faces_found": new_photo.faces_found,
+            # face / embedding
+            "embedding": photo_result.embedding,
+            "face_url": photo_result.face_url,
+            "embedding_status": photo_result.embedding_status,
+            "det_score": photo_result.det_score,
+            "blur": photo_result.blur,
+            "face_size": photo_result.face_size,
+            "faces_found": photo_result.faces_found,
         }
 
         self.repo.insert_document_snapshot(snapshot)
