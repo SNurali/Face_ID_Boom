@@ -24,6 +24,45 @@
         </video>
     </div>
 
+    <!-- РЕЖИМ ВВОДА ДЛЯ ПОИСКА -->
+    <div class="text-center mb-4">
+        <div class="btn-group w-75 mx-auto" role="group">
+            <input type="radio" class="btn-check" name="searchPhotoMode" id="searchModeCamera" checked>
+            <label class="btn btn-outline-primary" for="searchModeCamera">
+                Камера
+            </label>
+
+            <input type="radio" class="btn-check" name="searchPhotoMode" id="searchModeUpload">
+            <label class="btn btn-outline-primary" for="searchModeUpload">
+                Загрузить фото
+            </label>
+        </div>
+    </div>
+
+    <!-- Превью для поиска -->
+    <div class="text-center mb-4">
+        <!-- Камера (по умолчанию видна) -->
+        <div id="searchCameraBlock" class="mb-3">
+            <small class="text-muted d-block mb-2">
+                Наведите лицо в кадр основной камеры
+            </small>
+        </div>
+
+        <!-- Блок загрузки файла (скрыт по умолчанию) -->
+        <div id="searchUploadBlock" class="mb-3 d-none">
+            <input type="file"
+                   id="searchPhotoFile"
+                   accept="image/*"
+                   class="form-control mb-2 w-75 mx-auto">
+            <img id="searchPhotoPreview"
+                 class="img-fluid rounded border border-primary mx-auto d-block"
+                 style="max-height: 320px; display: none;">
+            <small class="text-muted d-block">
+                Выберите чёткое фото лица
+            </small>
+        </div>
+    </div>
+
     <!-- BUTTONS -->
     <div class="text-center mb-4">
         <button id="registerBtn" class="btn btn-primary btn-lg me-2">
@@ -34,7 +73,7 @@
         </button>
     </div>
 
-    <!-- 🔍 SEARCH RESULT (ГЛАВНЫЙ ФИКС) -->
+    <!-- 🔍 SEARCH RESULT -->
     <div id="searchResult"
          class="card border-success bg-dark text-light mt-4"
          style="display:none">
