@@ -1,0 +1,9 @@
+.drop-zone {
+    border-style: dashed;
+    background: #2c2c2c;
+    transition: all 0.3s;
+}
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: #0d6efd;
+    background: #343a40;
+}

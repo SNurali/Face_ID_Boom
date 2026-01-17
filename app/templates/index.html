@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Face ID Boom — Тест распознавания</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 40px; background: #f8f9fa; }
+        h1 { color: #2c3e50; }
+        #preview { max-width: 600px; margin: 20px auto; border: 2px solid #ddd; border-radius: 8px; }
+        #result { margin-top: 30px; font-size: 1.1em; }
+        button { padding: 12px 24px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <h1>Face ID Boom — Тест распознавания лиц</h1>
+    <p>Загрузи фото с лицом и посмотри, как работает детекция и оценка качества</p>
+
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="uploadFile()">Загрузить и проверить</button>
+
+    <div id="preview"><img id="previewImg" style="max-width:100%; display:none;"></div>
+    <div id="result"></div>
+
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Выбери фото!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch("/test-upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
+
+            const preview = document.getElementById('previewImg');
+            const resultDiv = document.getElementById('result');
+
+            if (data.error) {
+                resultDiv.innerHTML = `<p style="color:red;">Ошибка: ${data.error}</p>`;
+                if (data.original_image) {
+                    preview.src = data.original_image;
+                    preview.style.display = 'block';
+                }
+            } else {
+                preview.src = data.processed_image;
+                preview.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <p style="color:green;">Лицо найдено! Качество:</p>
+                    <ul style="list-style:none; padding:0;">
+                        <li>Детекция: <b>${data.det_score.toFixed(2)}</b></li>
+                        <li>Размытие: <b>${data.blur.toFixed(1)}</b></li>
+                        <li>Размер лица: <b>${data.face_size} px</b></li>
+                        <li>Лиц найдено: <b>${data.faces_found}</b></li>
+                    </ul>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
