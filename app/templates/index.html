@@ -1,150 +1,156 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Face ID Boom — Регистрация и тест</title>
+    <title>Face ID Boom — Биометрия будущего</title>
+
+    <!-- Bootstrap 5.3 + Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <style>
-        body { background: #0d1117; color: #c9d1d9; }
-        .drop-zone { border: 3px dashed #238636; background: #161b22; min-height: 200px; transition: all 0.3s; }
-        .drop-zone:hover, .drop-zone.dragover { border-color: #2ea043; background: #21262d; }
-        #previewContainer img, #checkPreviewImage { max-height: 400px; border-radius: 8px; }
-        .form-section { background: #161b22; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        .result-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Наш красивый стиль -->
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
-    <div class="container my-5">
-        <h1 class="text-center mb-4">Face ID Boom — Регистрация</h1>
+<body class="bg-dark text-light">
+    <div class="container py-5">
+        <!-- Заголовок -->
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold mb-2">Face ID <span class="text-primary">Boom</span></h1>
+            <p class="lead text-muted">Современная система распознавания лиц</p>
+        </div>
 
-        <div class="row justify-content-center">
-            <div class="col-md-10">
-                <!-- Форма регистрации -->
-                <div class="form-section">
-                    <h4 class="text-center mb-4">Введите данные и фото</h4>
-                    <form id="registerForm">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">ФИО</label>
-                                <input type="text" class="form-control bg-dark text-light" id="full_name" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Паспорт</label>
-                                <input type="text" class="form-control bg-dark text-light" id="passport" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Пол</label>
-                                <select class="form-select bg-dark text-light" id="sex" required>
-                                    <option value="">Выберите</option>
-                                    <option value="1">Мужской</option>
-                                    <option value="2">Женский</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Гражданство</label>
-                                <select class="form-select bg-dark text-light" id="citizen" required>
-                                    <option value="">Выберите страну</option>
-                                    <option value="860">Узбекистан</option>
-                                    <option value="170">Казахстан</option>
-                                    <option value="161">Россия</option>
-                                    <option value="246">Таджикистан</option>
-                                    <option value="417">Кыргызстан</option>
-                                    <option value="112">Беларусь</option>
-                                    <option value="398">Туркменистан</option>
-                                    <option value="51">Азербайджан</option>
-                                    <option value="268">Грузия</option>
-                                    <option value="804">Украина</option>
-                                    <option value="276">Германия</option>
-                                    <option value="840">США</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Дата рождения</label>
-                                <input type="date" class="form-control bg-dark text-light" id="date_of_birth">
-                            </div>
-
-                            <!-- Виза / въезд / выезд (опционально) -->
-                            <div class="col-12 mt-4">
-                                <h5>Данные визы / въезда / выезда (не обязательно)</h5>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Тип визы</label>
-                                <input type="text" class="form-control bg-dark text-light" id="visa_type">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Номер визы</label>
-                                <input type="text" class="form-control bg-dark text-light" id="visa_number">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Дата въезда</label>
-                                <input type="date" class="form-control bg-dark text-light" id="visa_date_from">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Дата выезда</label>
-                                <input type="date" class="form-control bg-dark text-light" id="visa_date_to">
+        <!-- Видео + статус -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-lg-8 col-md-10">
+                <div class="card bg-dark border-primary shadow-lg overflow-hidden">
+                    <div class="card-body p-0 position-relative">
+                        <video id="video" class="w-100" autoplay playsinline muted></video>
+                        <div class="position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center" id="overlay">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status" id="loadingSpinner">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <h4 class="mt-4" id="statusText">Загрузка камеры...</h4>
                             </div>
                         </div>
-
-                        <!-- Фото для регистрации -->
-                        <div class="drop-zone rounded-3 p-5 text-center mt-4" id="dropZone">
-                            <p class="lead mb-4">Перетащите эталонное фото сюда или нажмите</p>
-                            <input type="file" id="fileInput" accept="image/*" style="display: none;">
-                            <button type="button" class="btn btn-success btn-lg px-5" id="selectBtn">Выбрать фото</button>
-                            <div id="progressBar" class="progress mt-4" style="display:none;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
-                            </div>
-                        </div>
-
-                        <div id="previewContainer" class="text-center mt-4" style="display:none;">
-                            <img id="previewImage" class="img-fluid rounded mb-3">
-                            <div id="resultInfo" class="result-box mt-3"></div>
-                        </div>
-
-                        <!-- Кнопки действий -->
-                        <div class="text-center mt-5 mb-4 d-flex flex-wrap justify-content-center gap-3">
-                            <button type="button" id="registerBtn" class="btn btn-primary btn-lg px-5" disabled>
-                                <i class="bi bi-person-plus-fill me-2"></i>Зарегистрировать в базу
-                            </button>
-
-                            <button type="button" id="checkDbBtn" class="btn btn-info btn-lg px-5" disabled>
-                                <i class="bi bi-search me-2"></i>Проверить в базе
-                            </button>
-
-                            <button type="button" id="clearBtn" class="btn btn-outline-secondary btn-lg px-5">
-                                <i class="bi bi-arrow-repeat me-2"></i>Очистить всё
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Отдельный блок проверки лица в базе -->
-                <div class="form-section mt-5">
-                    <h4 class="text-center mb-4">Проверить лицо в базе</h4>
-
-                    <div class="drop-zone rounded-3 p-5 text-center" id="checkDropZone">
-                        <p class="lead mb-4">Перетащите фото для поиска или нажмите</p>
-                        <input type="file" id="checkFileInput" accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-success btn-lg px-5" id="checkSelectBtn">Выбрать фото</button>
-                        <div id="checkProgressBar" class="progress mt-4" style="display:none;">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%"></div>
-                        </div>
-                    </div>
-
-                    <div id="checkPreviewContainer" class="text-center mt-4" style="display:none;">
-                        <img id="checkPreviewImage" class="img-fluid rounded mb-3">
-                    </div>
-
-                    <div id="searchResult" class="result-box mt-4" style="display:none;">
-                        <h5 class="text-center mb-3">Результат поиска</h5>
-                        <div id="searchMatches" class="mt-3"></div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Кнопки управления -->
+        <div class="text-center mb-5">
+            <div class="btn-group btn-group-lg shadow" role="group">
+                <button type="button" id="registerBtn" class="btn btn-primary px-5 py-3" disabled>
+                    <i class="bi bi-person-plus-fill me-2"></i> Зарегистрировать
+                </button>
+                <button type="button" id="checkDbBtn" class="btn btn-info px-5 py-3" disabled>
+                    <i class="bi bi-search me-2"></i> Проверить в базе
+                </button>
+                <button type="button" id="clearBtn" class="btn btn-outline-secondary px-5 py-3">
+                    <i class="bi bi-x-circle me-2"></i> Очистить
+                </button>
+            </div>
+        </div>
+
+        <!-- Результат проверки -->
+        <div id="searchResult" class="card bg-dark border-success shadow-lg mt-5" style="display: none;">
+            <div class="card-header bg-success text-white text-center">
+                <h4 class="mb-0">Результат поиска</h4>
+            </div>
+            <div class="card-body">
+                <div id="searchMatches" class="list-group list-group-flush"></div>
+            </div>
+        </div>
+
+        <!-- Модальное окно регистрации -->
+        <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content bg-dark text-light border-primary">
+                    <div class="modal-header border-primary">
+                        <h5 class="modal-title" id="registerModalLabel">Регистрация нового лица</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="registerForm">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label for="full_name" class="form-label">ФИО</label>
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" id="full_name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="passport" class="form-label">Паспорт (серия и номер)</label>
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" id="passport" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="col-md-6">
+                                        <label for="gender" class="form-label">Пол</label>
+                                        <select class="form-select bg-dark text-light border-secondary" id="gender" required>
+                                            <option value="" disabled selected>Выберите</option>
+                                            <option value="1">Мужской</option>   <!-- ← добавь кавычки вокруг 1 -->
+                                            <option value="2">Женский</option>   <!-- ← добавь кавычки вокруг 2 -->
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="citizenship" class="form-label">Гражданство</label>
+                                    <select class="form-select bg-dark text-light border-secondary" id="citizenship" required>
+                                        <option value="" disabled selected>Выберите страну</option>
+                                        <option value="Узбекистан">Узбекистан</option>
+                                        <option value="Казахстан">Казахстан</option>
+                                        <option value="Россия">Россия</option>
+                                        <option value="Таджикистан">Таджикистан</option>
+                                        <option value="Кыргызстан">Кыргызстан</option>
+                                        <option value="Беларусь">Беларусь</option>
+                                        <option value="Туркменистан">Туркменистан</option>
+                                        <option value="Азербайджан">Азербайджан</option>
+                                        <option value="Грузия">Грузия</option>
+                                        <option value="Украина">Украина</option>
+                                        <option value="Германия">Германия</option>
+                                        <option value="США">США</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="birth_date" class="form-label">Дата рождения</label>
+                                    <input type="date" class="form-control bg-dark text-light border-secondary" id="birth_date" required>
+                                </div>
+                                <div class="col-12">
+                                    <hr class="border-secondary">
+                                    <h6 class="text-muted">Данные визы / въезда / выезда (не обязательно)</h6>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="visa_type" class="form-label">Тип визы</label>
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" id="visa_type">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="visa_number" class="form-label">Номер визы</label>
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" id="visa_number">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="entry_date" class="form-label">Дата въезда</label>
+                                    <input type="date" class="form-control bg-dark text-light border-secondary" id="entry_date">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="exit_date" class="form-label">Дата выезда</label>
+                                    <input type="date" class="form-control bg-dark text-light border-secondary" id="exit_date">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer border-primary">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="button" class="btn btn-primary" id="submitRegister">Сохранить в базу</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Сообщения об успехе/ошибке -->
+        <div id="alertContainer" class="position-fixed bottom-0 start-50 translate-middle-x mb-4" style="z-index: 1050; width: 90%; max-width: 500px;"></div>
     </div>
 
+    <!-- Bootstrap JS + наш скрипт -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/script.js"></script>
 </body>

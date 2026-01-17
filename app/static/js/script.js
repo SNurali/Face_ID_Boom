@@ -1,240 +1,192 @@
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const selectBtn = document.getElementById('selectBtn');
-const registerBtn = document.getElementById('registerBtn');
-const checkDbBtn = document.getElementById('checkDbBtn');
-const clearBtn = document.getElementById('clearBtn');
-const previewContainer = document.getElementById('previewContainer');
-const previewImage = document.getElementById('previewImage');
-const resultInfo = document.getElementById('resultInfo');
-const loading = document.getElementById('loading');
-const progressBar = document.getElementById('progressBar').querySelector('.progress-bar');
-const searchResult = document.getElementById('searchResult');
-const searchMatches = document.getElementById('searchMatches');
+let video = document.getElementById('video');
+let registerBtn = document.getElementById('registerBtn');
+let checkDbBtn = document.getElementById('checkDbBtn');
+let clearBtn = document.getElementById('clearBtn');
+let statusText = document.getElementById('statusText');
+let loadingSpinner = document.getElementById('loadingSpinner');
+let overlay = document.getElementById('overlay');
+let searchResult = document.getElementById('searchResult');
+let searchMatches = document.getElementById('searchMatches');
+let alertContainer = document.getElementById('alertContainer');
 
-let selectedFile = null;
+let stream = null;
+let isProcessing = false;
 
-selectBtn.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+const registerModal = new bootstrap.Modal(
+    document.getElementById('registerModal')
+);
 
-dropZone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-});
-
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-
-dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    handleFile(e.dataTransfer.files[0]);
-});
-
-function handleFile(file) {
-    if (!file || !file.type.startsWith('image/')) {
-        alert("Только изображения!");
-        return;
-    }
-
-    selectedFile = file;
-    resultInfo.innerHTML = '';
-    registerBtn.disabled = true;
-    checkDbBtn.disabled = true;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-        previewImage.src = reader.result;
-        previewContainer.style.display = 'block';
-        uploadPhoto(file); // сразу проверка качества
-    };
-    reader.readAsDataURL(file);
+// ────────────────────────────────────────────────
+// UI helpers
+// ────────────────────────────────────────────────
+function showAlert(message, type = 'success') {
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    alertContainer.appendChild(alert);
+    setTimeout(() => alert.remove(), 6000);
 }
 
-async function uploadPhoto(file) {
-    loading.style.display = 'block';
-    progressBar.style.width = '0%';
-    document.getElementById('progressBar').style.display = 'block';
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/test-upload', true);
-
-        xhr.upload.onprogress = e => {
-            if (e.lengthComputable) {
-                const percent = (e.loaded / e.total) * 100;
-                progressBar.style.width = percent + '%';
-            }
-        };
-
-        xhr.onload = function () {
-            loading.style.display = 'none';
-            document.getElementById('progressBar').style.display = 'none';
-
-            if (xhr.status !== 200) {
-                resultInfo.innerHTML = `<div class="alert alert-danger">Ошибка сервера: ${xhr.status}</div>`;
-                return;
-            }
-
-            const data = JSON.parse(xhr.responseText);
-
-            if (data.error) {
-                resultInfo.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-                previewImage.style.border = '5px solid red';
-                previewImage.style.boxShadow = '0 0 20px red';
-                return;
-            }
-
-            // Показываем обработанное фото
-            previewImage.src = `data:image/jpeg;base64,${data.image_base64 || data.processed_base64}`;
-
-            // Проверка качества
-            const passedQuality = data.det_score >= 0.60 && data.blur >= 60.0 && data.face_size >= 80;
-            const borderColor = passedQuality ? 'lime' : 'red';
-            const statusText = passedQuality ? 'ОТЛИЧНОЕ качество ✅' : 'НЕ ПРОШЛО контроль ❌';
-            const alertClass = passedQuality ? 'alert-success' : 'alert-danger';
-
-            previewImage.style.border = `5px solid ${borderColor}`;
-            previewImage.style.boxShadow = `0 0 20px ${borderColor}`;
-
-            resultInfo.innerHTML = `
-                <div class="alert ${alertClass}">
-                    <strong>${statusText}</strong><br>
-                    Детекция: <b>${data.det_score?.toFixed(3) || 'N/A'}</b><br>
-                    Чёткость: <b>${data.blur?.toFixed(1) || 'N/A'}</b><br>
-                    Размер лица: <b>${data.face_size || 'N/A'} px</b><br>
-                    Лиц найдено: <b>${data.faces_found || 'N/A'}</b>
-                </div>
-            `;
-
-            // Активируем кнопки только при хорошем качестве
-            registerBtn.disabled = !passedQuality;
-            checkDbBtn.disabled = false;
-        };
-
-        xhr.send(formData);
-    } catch (err) {
-        loading.style.display = 'none';
-        document.getElementById('progressBar').style.display = 'none';
-        resultInfo.innerHTML = `<div class="alert alert-danger">Ошибка: ${err.message}</div>`;
-    }
+function setStatus(text, loading = false) {
+    statusText.textContent = text;
+    loadingSpinner.style.display = loading ? 'inline-block' : 'none';
 }
 
-// Кнопка "Зарегистрировать"
-registerBtn.addEventListener('click', async () => {
-    if (!selectedFile) return alert("Сначала загрузите фото");
-
-    const payload = {
-        photos_base64: [],
-        full_name: document.getElementById('full_name').value.trim(),
-        passport: document.getElementById('passport').value.trim(),
-        sex: parseInt(document.getElementById('sex').value),
-        citizen: document.getElementById('citizen').value ? parseInt(document.getElementById('citizen').value) : null,
-        date_of_birth: document.getElementById('date_of_birth').value || null,
-        visa_type: document.getElementById('visa_type').value || null,
-        visa_number: document.getElementById('visa_number').value || null,
-        visa_date_from: document.getElementById('visa_date_from').value || null,
-        visa_date_to: document.getElementById('visa_date_to').value || null
-    };
-
-    if (!payload.full_name || !payload.passport || !payload.sex) {
-        return alert("Заполните обязательные поля: ФИО, паспорт, пол");
-    }
-
-    loading.style.display = 'block';
-    registerBtn.disabled = true;
-
+// ────────────────────────────────────────────────
+// Camera
+// ────────────────────────────────────────────────
+async function startCamera() {
     try {
-        const reader = new FileReader();
-        reader.onload = async () => {
-            const base64 = reader.result.split(',')[1]; // чистый base64
-            payload.photos_base64 = [base64];
-
-            const response = await fetch('/register/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.person_id) {
-                resultInfo.innerHTML += `
-                    <div class="alert alert-success mt-3">
-                        <strong>Успешно зарегистрирован!</strong><br>
-                        Person ID: ${data.person_id}
-                    </div>
-                `;
-            } else {
-                resultInfo.innerHTML += `
-                    <div class="alert alert-danger mt-3">
-                        Ошибка регистрации: ${data.detail || 'Неизвестная ошибка'}
-                    </div>
-                `;
-            }
-        };
-        reader.readAsDataURL(selectedFile);
-    } catch (err) {
-        resultInfo.innerHTML += `<div class="alert alert-danger mt-3">Ошибка: ${err.message}</div>`;
-    } finally {
-        loading.style.display = 'none';
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        await video.play();
+        overlay.style.opacity = '0';
+        setStatus('Камера готова', false);
         registerBtn.disabled = false;
+        checkDbBtn.disabled = false;
+    } catch (e) {
+        setStatus('Нет доступа к камере', false);
+        showAlert('Не удалось открыть камеру', 'danger');
     }
+}
+
+function stopCamera() {
+    stream?.getTracks().forEach(t => t.stop());
+}
+
+function captureFrame() {
+    const c = document.createElement('canvas');
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext('2d').drawImage(video, 0, 0);
+    return c.toDataURL('image/jpeg', 0.85);
+}
+
+// ────────────────────────────────────────────────
+// РЕГИСТРАЦИЯ
+// ────────────────────────────────────────────────
+registerBtn.addEventListener('click', () => {
+    registerModal.show();
 });
 
-// Кнопка "Проверить в базе"
-checkDbBtn.addEventListener('click', async () => {
-    if (!selectedFile) return alert("Сначала загрузите фото");
-
-    checkDbBtn.disabled = true;
-    loading.style.display = 'block';
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+document.getElementById('submitRegister').addEventListener('click', async () => {
+    if (isProcessing) return;
+    isProcessing = true;
 
     try {
-        const response = await fetch('/test-search', { method: 'POST', body: formData });
+        setStatus('Регистрация...', true);
+
+        const fullName = document.getElementById('full_name').value.trim();
+        const passport = document.getElementById('passport').value.trim();
+        const gender = parseInt(document.getElementById('gender').value, 10);
+
+        if (!fullName || !passport || ![1, 2].includes(gender)) {
+            showAlert('Заполните обязательные поля', 'danger');
+            return;
+        }
+
+        const payload = {
+            photos_base64: captureFrame(),
+            full_name: fullName,
+            passport: passport,
+            gender: gender,
+            citizenship: document.getElementById('citizenship').value || null,
+            birth_date: document.getElementById('birth_date').value || null,
+            visa_type: document.getElementById('visa_type').value || null,
+            visa_number: document.getElementById('visa_number').value || null,
+            entry_date: document.getElementById('entry_date').value || null,
+            exit_date: document.getElementById('exit_date').value || null
+        };
+
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
         const data = await response.json();
 
-        searchResult.style.display = 'block';
-
-        if (data.error) {
-            searchMatches.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-        } else if (data.matches && data.matches.length > 0) {
-            let html = '';
-            data.matches.forEach(m => {
-                const color = m.confidence >= 80 ? 'success' : m.confidence >= 50 ? 'warning' : 'danger';
-                html += `
-                    <div class="alert alert-${color} mb-2">
-                        <strong>ID:</strong> ${m.person_id}<br>
-                        <strong>ФИО:</strong> ${m.full_name || '—'}<br>
-                        <strong>Уверенность:</strong> ${m.confidence}% (distance: ${m.distance?.toFixed(3)})
-                    </div>
-                `;
-            });
-            searchMatches.innerHTML = html;
-        } else {
-            searchMatches.innerHTML = '<div class="alert alert-info">Совпадений не найдено</div>';
+        if (!response.ok) {
+            throw new Error(data.detail || data.message || 'Ошибка регистрации');
         }
-    } catch (err) {
-        searchMatches.innerHTML = `<div class="alert alert-danger">Ошибка поиска: ${err.message}</div>`;
+
+        showAlert('Успешно зарегистрирован', 'success');
+        registerModal.hide();
+        document.getElementById('registerForm').reset();
+
+    } catch (e) {
+        showAlert(e.message, 'danger');
     } finally {
-        loading.style.display = 'none';
-        checkDbBtn.disabled = false;
+        setStatus('Готово', false);
+        isProcessing = false;
     }
 });
 
-// Очистка
-clearBtn.addEventListener('click', () => {
-    fileInput.value = '';
-    previewContainer.style.display = 'none';
-    resultInfo.innerHTML = '';
-    searchResult.style.display = 'none';
-    registerBtn.disabled = true;
-    checkDbBtn.disabled = true;
-    selectedFile = null;
-    previewImage.style.border = 'none';
-    previewImage.style.boxShadow = 'none';
+// ────────────────────────────────────────────────
+// ПОИСК
+// ────────────────────────────────────────────────
+checkDbBtn.addEventListener('click', async () => {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    try {
+        setStatus('Поиск...', true);
+
+        const response = await fetch('/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photos_base64: captureFrame() })
+        });
+
+        const data = await response.json();
+        searchMatches.innerHTML = '';
+
+        if (data.matches?.length) {
+            data.matches.forEach(m => {
+                const similarity =
+                    typeof m.similarity === 'number' && isFinite(m.similarity)
+                        ? m.similarity.toFixed(1) + '%'
+                        : '—';
+
+                const div = document.createElement('div');
+                div.className = 'list-group-item';
+                    div.innerHTML = `
+                        <strong>ФИО:</strong> ${m.full_name || '—'}<br>
+                        <strong>Паспорт:</strong> ${m.passport || '—'}<br>
+                        <strong>Гражданство:</strong> ${m.citizenship || '—'}<br>
+                        <strong>Дата рождения:</strong> ${m.birth_date || '—'}<br>
+                        <strong>Тип визы:</strong> ${m.visa_type || '—'}<br>
+                        <strong>Номер визы:</strong> ${m.visa_number || '—'}<br>
+                        <strong>Въезд:</strong> ${m.entry_date || '—'}<br>
+                        <strong>Выезд:</strong> ${m.exit_date || '—'}<br>
+                        <strong>Схожесть:</strong> ${similarity}
+                    `;
+
+                searchMatches.appendChild(div);
+            });
+            searchResult.style.display = 'block';
+        } else {
+            searchMatches.innerHTML =
+                '<div class="text-muted text-center py-4">Совпадений нет</div>';
+            searchResult.style.display = 'block';
+        }
+
+    } catch (e) {
+        showAlert('Ошибка поиска', 'danger');
+    } finally {
+        setStatus('Готово', false);
+        isProcessing = false;
+    }
 });
+
+// ────────────────────────────────────────────────
+clearBtn.addEventListener('click', () => {
+    searchResult.style.display = 'none';
+    searchMatches.innerHTML = '';
+});
+
+window.addEventListener('load', startCamera);
+window.addEventListener('beforeunload', stopCamera);
